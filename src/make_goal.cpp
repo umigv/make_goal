@@ -24,12 +24,12 @@ public:
 private:
 
 	ros::NodeHandle n;
-    move_base_msgs::MoveBaseGoal goal;
-    ros::Publisher goalPub = n.advertise<move_base_msgs::MoveBaseGoal>("simple_goal", 1000);
-    ros::Subscriber gpsSub = n.subscribe<nav_msgs::Odometry>("nav_msgs", 1000, &MakeGoal::readIn, this);
+    move_base_msgs::MoveBaseActionGoal goal;
+    ros::Publisher goalPub = n.advertise<move_base_msgs::MoveBaseActionGoal>("move_base/goal", 1000);
+    ros::Subscriber gpsSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &MakeGoal::readIn, this);
     std::ifstream inputFile;
 
-	void makeAGoal(const double x, const double w);
+	void makeAGoal(const double px, const double py, const double pz, const double ox, const double oy, const double oz, const double ow);
     void readIn(const nav_msgs::Odometry::ConstPtr& msg);
     void readIn();
 
@@ -37,11 +37,18 @@ private:
     void testMe();
 };
 
-void MakeGoal::makeAGoal(const double x, const double w) {
-    goal.target_pose.header.frame_id = "make_goal";
-    goal.target_pose.header.stamp = ros::Time::now();
-    goal.target_pose.pose.position.x = x;
-    goal.target_pose.pose.orientation.w = w;
+// edit to match input coordinates
+void MakeGoal::makeAGoal(const double px, const double py, const double pz, const double ox, const double oy,
+	const double oz, const double ow) {
+    goal.goal.target_pose.header.frame_id = "map";
+    goal.goal.target_pose.header.stamp = ros::Time::now();
+    goal.goal.target_pose.pose.position.x = px;
+    goal.goal.target_pose.pose.position.y = py;
+    goal.goal.target_pose.pose.position.z = pz;
+    goal.goal.target_pose.pose.orientation.x = ox;
+    goal.goal.target_pose.pose.orientation.y = oy;
+    goal.goal.target_pose.pose.orientation.z = oz;
+    goal.goal.target_pose.pose.orientation.w = ow;
     goalPub.publish(goal);
 }
 
@@ -49,34 +56,47 @@ void MakeGoal::readIn(const nav_msgs::Odometry::ConstPtr& msg) {
 
 	nav_msgs::Odometry::ConstPtr gpsPos = msg;
 
-	double x;
-    double w;
+	// read in files according to coordinates being used
+	// positon coords
+	double px, py, pz;
+    //orientation coords
+    double ox, oy, oz, ow;
 
-	if ((gpsPos->pose.pose.position.x == goal.target_pose.pose.position.x) &&
-	    (gpsPos->pose.pose.orientation.w == goal.target_pose.pose.orientation.w)) {
+	if ((gpsPos->pose.pose.position.x == goal.goal.target_pose.pose.position.x) &&
+		(gpsPos->pose.pose.position.y == goal.goal.target_pose.pose.position.y) &&
+		(gpsPos->pose.pose.position.z == goal.goal.target_pose.pose.position.z) &&
+	    (gpsPos->pose.pose.orientation.x == goal.goal.target_pose.pose.orientation.x) &&
+		(gpsPos->pose.pose.orientation.y == goal.goal.target_pose.pose.orientation.y) &&
+		(gpsPos->pose.pose.orientation.z == goal.goal.target_pose.pose.orientation.z) &&
+		(gpsPos->pose.pose.orientation.w == goal.goal.target_pose.pose.orientation.w)) {
 		try {
-			inputFile >> x >> w;
-			makeAGoal(x, w);
+			// edit to match input coordinates
+			inputFile >> px >> py >> pz >> ox >> oy >> oz >> ow;
+			makeAGoal(px, py, pz, ox, oy, oz, ow);
 		}
 		catch (...) {
 			std::cout << "Warning: Error reading coordinaties file. May have reached EOF." << std::endl;
 		}
 	}
+	
 	else {
-		goal.target_pose.header.stamp = ros::Time::now();
+		goal.goal.target_pose.header.stamp = ros::Time::now();
 		goalPub.publish(goal);
 	}
+	
     
 }
 
 void MakeGoal::readIn() {
 
-	double x;
-    double w;
+	// positon coords
+	double px, py, pz;
+    //orientation coords
+    double ox, oy, oz, ow;
 
 	try {
-		inputFile >> x >> w;
-		makeAGoal(x, w);
+		inputFile >> px >> py >> pz >> ox >> oy >> oz >> ow;
+		makeAGoal(px, py, pz, ox, oy, oz, ow);
 	}
 	catch (...) {
 		std::cout << "Warning: Error reading coordinaties file. May have reached EOF." << std::endl;
@@ -84,12 +104,14 @@ void MakeGoal::readIn() {
 }
 
 void MakeGoal::testMe() {
-	double x;
-    double w;
+	// positon coords
+	double px, py, pz;
+    //orientation coords
+    double ox, oy, oz, ow;
 
 	try {
-		inputFile >> x >> w;
-		makeAGoal(x, w);
+		inputFile >> px >> py >> pz >> ox >> oy >> oz >> ow;
+		makeAGoal(px, py, pz, ox, oy, oz, ow);
 	}
 	catch (...) {
 		std::cout << "Warning: Error reading coordinaties file. May have reached EOF." << std::endl;
