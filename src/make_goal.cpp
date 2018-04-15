@@ -29,7 +29,7 @@ private:
 	    std::deque<move_base_msgs::MoveBaseActionGoal> wayPoints;
 
 	    // allowed variation from actual goal coordination
-	    double threshold = 0.7;
+	    double threshold = 0.1;
 
 	    void fillWayPoints();
 	    bool reachedWayPoint();
@@ -106,7 +106,7 @@ void ROSNode::publishGoal(const nav_msgs::Odometry::ConstPtr& msg) {
 void ROSNode::initGoal() {
 	move_base_msgs::MoveBaseActionGoal currWaypoint = make_goal->getCurrWaypoint();
 	currWaypoint.goal.target_pose.header.stamp = ros::Time::now();
-	std::cout << "Waypoint: " << loop << std::endl;
+	//std::cout << "Waypoint: " << loop << std::endl;
 	++loop;
 
 	goalPub.publish(currWaypoint);
