@@ -1,197 +1,248 @@
 // Code refactored by Michael specifically for Greg
 
-#include "ros/ros.h"
-#include <move_base_msgs/MoveBaseAction.h>
-#include <nav_msgs/Odometry.h>
-#include <string>
-#include <fstream>
 #include <cmath>
 #include <deque>
+#include <fstream>
+#include <functional>
+#include <iostream>
+#include <iterator>
+#include <string>
 
-class ROSNode {
-private:
+#include <boost/optional.hpp>
 
-	class MakeGoal {
+#include <geometry_msgs/Pose.h>
+#include <move_base_msgs/MoveBaseAction.h>
+#include <nav_msgs/Odometry.h>
+#include <ros/ros.h>
+#include <umigv_utilities/rosparam.hpp>
+#include <umigv_utilities/utility.hpp>
 
-		friend class ROSNode;
+namespace geometry_msgs {
 
-	public:
-		MakeGoal(const std::string& fileName) : inputFile(fileName.c_str()) {
-			fillWayPoints();
-		}
+std::istream& operator>>(std::istream &is, Point &point) {
+	return is >> point.x >> point.y >> point.z;
+}
 
-		bool wayPointsEmpty();
-		void set_gpsPos(const nav_msgs::Odometry::ConstPtr& msg);
-		move_base_msgs::MoveBaseActionGoal& getNextWaypoint();
-	    move_base_msgs::MoveBaseActionGoal& getCurrWaypoint();
+std::istream& operator>>(std::istream &is, Quaternion &quat) {
+	return is >> quat.x >> quat.y >> quat.z >> quat.w;
+}
 
-	private:
-	    nav_msgs::Odometry::ConstPtr gpsPos;
-	    std::ifstream inputFile;
-	    std::deque<move_base_msgs::MoveBaseActionGoal> wayPoints;
+std::istream& operator>>(std::istream &is, Pose &pose) {
+	return is >> pose.position >> pose.orientation;
+}
 
-	    // allowed variation from actual goal coordination
-	    constexpr double THRESHOLD = 0.1;
+Point operator-(const Point &lhs, const Point &rhs) {
+	Point difference;
 
-	    void fillWayPoints();
-	    bool reachedWayPoint();
-	    
-	};
+	difference.x = lhs.x - rhs.x;
+	difference.y = lhs.y - rhs.y;
+	difference.z = lhs.z - rhs.z;
 
-public:
-	ROSNode(const std::string& filename) {
-		make_goal = new MakeGoal(filename);
-		initGoal();
-	}
+	return difference;
+}
 
-	void publishGoal(const nav_msgs::Odometry::ConstPtr& msg);
-	void initGoal();
+} // namespace geometry_msgs
 
-	~ROSNode() {
-		delete make_goal;
-	}
-
-	MakeGoal* make_goal;
-
-private:
-
-	ros::NodeHandle n;
-	int loop = 0;
-	ros::Publisher goalPub = n.advertise<move_base_msgs::MoveBaseActionGoal>("move_base/goal", 1000);
-	ros::Subscriber gpsSub = n.subscribe<nav_msgs::Odometry>("odom", 1000, &ROSNode::publishGoal, this);
-
+struct SimpleGoal {
+	geometry_msgs::Pose pose;
 };
 
-move_base_msgs::MoveBaseActionGoal& ROSNode::MakeGoal::getNextWaypoint() {
-	wayPoints.pop_front();
+using ActionGoalT = move_base_msgs::MoveBaseActionGoal;
 
-	// assumes this will shut down the node and thus the code will not segfault
-	if (wayPointsEmpty()) {
-		ros::shutdown();
+ActionGoalT as_action_goal(const SimpleGoal &goal,
+					       ActionGoalT pattern) noexcept {
+	pattern.goal.target_pose.pose = goal.pose;
+
+	return pattern;
+}
+
+std::istream& operator>>(std::istream &is, SimpleGoal &goal) {
+	return is >> goal.pose;
+}
+
+// euclidean norm of Point
+inline double mag(const geometry_msgs::Point &point) noexcept {
+	return std::sqrt(point.x * point.x + point.y * point.y + point.z * point.z);
+}
+
+class SimpleGoalIterator {
+public:
+	SimpleGoalIterator(std::istream &is)
+	: goals_(std::istream_iterator<SimpleGoal>{ is },
+			 std::istream_iterator<SimpleGoal>{ }) { }
+
+	boost::optional<std::reference_wrapper<const SimpleGoal>>
+	next() noexcept {
+		if (current_iter_ >= goals_.cend()) {
+			return boost::none;
+		}
+
+		++current_iter_;
+		return current();
 	}
 
-	return wayPoints.front();
-}
+	boost::optional<std::reference_wrapper<const SimpleGoal>>
+	current() const noexcept {
+		if (current_iter_ >= goals_.cend()) {
+			return boost::none;
+		}
 
-
-
-move_base_msgs::MoveBaseActionGoal& ROSNode::MakeGoal::getCurrWaypoint() {
-	return wayPoints.front();
-}
-
-
-
-void ROSNode::publishGoal(const nav_msgs::Odometry::ConstPtr& msg) {
-	make_goal->set_gpsPos(msg);
-
-	if (make_goal->reachedWayPoint()) {
-
-		move_base_msgs::MoveBaseActionGoal nextWaypoint = make_goal->getNextWaypoint();
-		nextWaypoint.goal.target_pose.header.stamp = ros::Time::now();
-
-		std::cout << "Waypoint: " << loop << std::endl;
-		++loop;
-
-		goalPub.publish(nextWaypoint);
-		
-	}
-	else {
-		move_base_msgs::MoveBaseActionGoal currWaypoint = make_goal->getCurrWaypoint();
-		currWaypoint.goal.target_pose.header.stamp = ros::Time::now();
-
-		goalPub.publish(currWaypoint);
-	}
-}
-
-
-
-void ROSNode::initGoal() {
-	move_base_msgs::MoveBaseActionGoal currWaypoint = make_goal->getCurrWaypoint();
-	currWaypoint.goal.target_pose.header.stamp = ros::Time::now();
-	++loop;
-
-	goalPub.publish(currWaypoint);
-}
-
-
-
-void ROSNode::MakeGoal::set_gpsPos(const nav_msgs::Odometry::ConstPtr& msg) {
-	this->gpsPos = msg; 
-}
-
-
-
-bool ROSNode::MakeGoal::wayPointsEmpty() {
-	return wayPoints.empty();
-}
-
-
-
-void ROSNode::MakeGoal::fillWayPoints() {
-	if (!inputFile.is_open()) {
-		std::cout << "Error: Failed to open read file" << std::endl;
-		exit(1);
+		return { std::cref(*current_iter_) };
 	}
 
-	// positon coords
-	double px, py, pz;
-    //orientation coords
-    double ox, oy, oz, ow;
-
-	while (inputFile >> px >> py >> pz >> ox >> oy >> oz >> ow) {
-		// Overload >> operator for ros pose class
-		// edit to match input coordinates
-		
-		move_base_msgs::MoveBaseActionGoal goal;
-
-		goal.goal.target_pose.header.frame_id = "map";
-	    goal.goal.target_pose.pose.position.x = px;
-	    goal.goal.target_pose.pose.position.y = py;
-	    goal.goal.target_pose.pose.position.z = pz;
-	    goal.goal.target_pose.pose.orientation.x = ox;
-	    goal.goal.target_pose.pose.orientation.y = oy;
-	    goal.goal.target_pose.pose.orientation.z = oz;
-	    goal.goal.target_pose.pose.orientation.w = ow;
-
-		this->wayPoints.push_back(goal);
+	std::size_t num_goals() const noexcept {
+		return goals_.size();
 	}
 
-	inputFile.close();
+private:
+	std::vector<SimpleGoal> goals_;
+	std::vector<SimpleGoal>::const_iterator current_iter_ = goals_.cbegin();
+};
 
-}
-
-
-
-bool ROSNode::MakeGoal::reachedWayPoint() {
-
-	move_base_msgs::MoveBaseActionGoal currWP = getCurrWaypoint();
-
-	if ((abs(gpsPos->pose.pose.position.x - currWP.goal.target_pose.pose.position.x) <= THRESHOLD) &&
-		(abs(gpsPos->pose.pose.position.y - currWP.goal.target_pose.pose.position.y) <= THRESHOLD) &&
-		(abs(gpsPos->pose.pose.position.z - currWP.goal.target_pose.pose.position.z) <= THRESHOLD)) {
-		return true;
+class GoalDirector {
+public:
+	GoalDirector(ros::NodeHandle &node, SimpleGoalIterator goals,
+				 ActionGoalT goal_pattern, const double threshold = 0.5)
+	: publisher_{ node.advertise<ActionGoalT>("move_base/goal", 10) },
+	  goals_{ std::move(goals) },
+	  goal_pattern_{ std::move(goal_pattern) },
+	  distance_threshold_{ threshold } {
+		while (publisher_.getNumSubscribers() == 0) { }
+		publish_current_goal();
 	}
-	return false;
+
+	void odometry_callback(const nav_msgs::Odometry::ConstPtr &odom_ptr) {
+		const geometry_msgs::Pose &pose = odom_ptr->pose.pose;
+
+		if (is_reached(pose)) {
+			publish_next_goal();
+		}
+	}
+
+private:
+	bool is_reached(const geometry_msgs::Pose &pose) const noexcept {
+		const auto current = goals_.current();
+
+		if (!current) {
+			return false;
+		}
+
+		const auto &current_position = current.value().get().pose.position;
+
+		return mag(current_position - pose.position) < distance_threshold_;
+	}
+
+	void publish_current_goal() {
+		const auto maybe_current = goals_.current();
+
+		if (!maybe_current) {
+			return;
+		}
+
+		const auto now = ros::Time::now();
+
+		goal_pattern_.header.stamp = now;
+		goal_pattern_.goal_id.stamp = now;
+		goal_pattern_.goal.target_pose.header.stamp = now;
+		publisher_.publish(as_action_goal(maybe_current.value(),
+										  goal_pattern_));
+		++goal_pattern_.header.seq;
+		++goal_pattern_.goal.target_pose.header.seq;
+
+
+		ROS_INFO_STREAM("published goal " << goal_index_);
+	}
+
+	void publish_next_goal() {
+		const auto maybe_next = goals_.next();
+
+		if (!maybe_next) {
+			return;
+		}
+
+		const auto now = ros::Time::now();
+
+		goal_pattern_.header.stamp = now;
+		goal_pattern_.goal_id.stamp = now;
+		goal_pattern_.goal.target_pose.header.stamp = now;
+		publisher_.publish(as_action_goal(maybe_next.value(), goal_pattern_));
+		++goal_pattern_.header.seq;
+		++goal_pattern_.goal.target_pose.header.seq;
+
+		ROS_INFO_STREAM("published goal " << ++goal_index_);
+	}
+
+	ros::Publisher publisher_;
+	SimpleGoalIterator goals_;
+	ActionGoalT goal_pattern_;
+	double distance_threshold_;
+	std::size_t goal_index_ = 0;
+};
+
+ActionGoalT make_action_goal_pattern(const std::string &frame_id,
+									 const std::string &goal_id) {
+	ActionGoalT pattern;
+
+	pattern.header.seq = 0;
+	pattern.header.frame_id = frame_id;
+
+	pattern.goal_id.id = goal_id;
+
+	pattern.goal.target_pose.header.seq = 0;
+	pattern.goal.target_pose.header.frame_id = frame_id;
+
+	return pattern;
 }
 
+struct Parameters {
+	std::string frame_id;
+	std::string goal_id;
+	std::string goals_filename;
+	double threshold;
+};
 
+Parameters get_parameters(ros::NodeHandle &node) {
+	using namespace std::literals;
+
+	Parameters params;
+
+	try {
+		params.frame_id =
+			umigv::get_parameter_fatal<std::string>(node, "frame_id"s);
+		params.goal_id =
+			umigv::get_parameter_fatal<std::string>(node, "goal_id"s);
+		params.goals_filename =
+			umigv::get_parameter_fatal<std::string>(node, "goals_filename"s);
+		params.threshold =
+			umigv::get_parameter_fatal<double>(node, "threshold");
+	} catch (const umigv::ParameterNotFoundException &e) {
+		ROS_FATAL_STREAM("unable to find parameter '" << e.parameter() << "'");
+		umigv::blocking_shutdown();
+	}
+
+	return params;
+}
 
 int main(int argc, char **argv) {
 	ros::init(argc, argv, "make_goal");
 
+	ros::NodeHandle node;
+	ros::NodeHandle private_node{ "~" };
 
-	if (argc != 2) {
-		std::cout << "Error: correct usage: ./make_goal [gps_coord_file.txt]" << std::endl;
-		exit(1);
-	}
+	const Parameters params = get_parameters(private_node);
 
-	std::string filename = argv[1];
-	ROSNode ros_node(filename);
-	
-	while(ros::ok()) {
-		ros::spin();
-	}
+	const auto goal_pattern =
+		make_action_goal_pattern(params.frame_id, params.goal_id);
+	std::ifstream ifs(params.goals_filename);
+	SimpleGoalIterator goals{ ifs };
 
-	return 0;
+	GoalDirector director(node, std::move(goals),
+						  goal_pattern, params.threshold);
+
+	const auto subscriber =
+		node.subscribe<nav_msgs::Odometry>("odom", 10,
+										   &GoalDirector::odometry_callback,
+										   &director);
+
+	ros::spin();
 }
-
