@@ -31,7 +31,7 @@ private:
 	    std::deque<move_base_msgs::MoveBaseActionGoal> wayPoints;
 
 	    // allowed variation from actual goal coordination
-	    constexpr double THRESHOLD = 0.1;
+	    static constexpr double THRESHOLD = 0.1;
 
 	    void fillWayPoints();
 	    bool reachedWayPoint();
