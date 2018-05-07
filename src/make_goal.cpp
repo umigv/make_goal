@@ -107,7 +107,6 @@ public:
 	  goals_{ std::move(goals) },
 	  goal_pattern_{ std::move(goal_pattern) },
 	  distance_threshold_{ threshold } {
-		while (publisher_.getNumSubscribers() == 0) { }
 		publish_current_goal();
 	}
 
@@ -117,6 +116,10 @@ public:
 		if (is_reached(pose)) {
 			publish_next_goal();
 		}
+	}
+
+	void force_publish(const ros::TimerEvent&) {
+		publish_current_goal();
 	}
 
 private:
@@ -149,6 +152,7 @@ private:
 			return;
 		}
 
+		++goal_index_;
 		publish_goal(maybe_next.value());
 	}
 
@@ -162,7 +166,7 @@ private:
 		++goal_pattern_.header.seq;
 		++goal_pattern_.goal.target_pose.header.seq;
 
-		ROS_INFO_STREAM("published goal " << ++goal_index_);
+		ROS_INFO_STREAM("published goal " << goal_index_);
 	}
 
 	ros::Publisher publisher_;
@@ -236,6 +240,9 @@ int main(int argc, char **argv) {
 		node.subscribe<nav_msgs::Odometry>("odom", 10,
 										   &GoalDirector::odometry_callback,
 										   &director);
+	const auto timer =
+		node.createTimer(ros::Rate{ 1.0 }, &GoalDirector::force_publish,
+						 &director);
 
 	ros::spin();
 }
