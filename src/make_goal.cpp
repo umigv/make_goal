@@ -12,7 +12,9 @@ class ROSNode {
 private:
 
 	class MakeGoal {
+
 		friend class ROSNode;
+
 	public:
 		MakeGoal(const std::string& fileName) : inputFile(fileName.c_str()) {
 			fillWayPoints();
@@ -29,7 +31,7 @@ private:
 	    std::deque<move_base_msgs::MoveBaseActionGoal> wayPoints;
 
 	    // allowed variation from actual goal coordination
-	    double threshold = 0.1;
+	    constexpr double THRESHOLD = 0.1;
 
 	    void fillWayPoints();
 	    bool reachedWayPoint();
@@ -84,11 +86,11 @@ void ROSNode::publishGoal(const nav_msgs::Odometry::ConstPtr& msg) {
 
 	if (make_goal->reachedWayPoint()) {
 
-		std::cout << "Waypoint: " << loop << std::endl;
-		++loop;
-
 		move_base_msgs::MoveBaseActionGoal nextWaypoint = make_goal->getNextWaypoint();
 		nextWaypoint.goal.target_pose.header.stamp = ros::Time::now();
+
+		std::cout << "Waypoint: " << loop << std::endl;
+		++loop;
 
 		goalPub.publish(nextWaypoint);
 		
@@ -106,7 +108,6 @@ void ROSNode::publishGoal(const nav_msgs::Odometry::ConstPtr& msg) {
 void ROSNode::initGoal() {
 	move_base_msgs::MoveBaseActionGoal currWaypoint = make_goal->getCurrWaypoint();
 	currWaypoint.goal.target_pose.header.stamp = ros::Time::now();
-	//std::cout << "Waypoint: " << loop << std::endl;
 	++loop;
 
 	goalPub.publish(currWaypoint);
@@ -137,14 +138,13 @@ void ROSNode::MakeGoal::fillWayPoints() {
     //orientation coords
     double ox, oy, oz, ow;
 
-	while (inputFile.good()) {
+	while (inputFile >> px >> py >> pz >> ox >> oy >> oz >> ow) {
+		// Overload >> operator for ros pose class
 		// edit to match input coordinates
-		inputFile >> px >> py >> pz >> ox >> oy >> oz >> ow;
-
+		
 		move_base_msgs::MoveBaseActionGoal goal;
 
 		goal.goal.target_pose.header.frame_id = "map";
-	    // goal.goal.target_pose.header.stamp = ros::Time::now();
 	    goal.goal.target_pose.pose.position.x = px;
 	    goal.goal.target_pose.pose.position.y = py;
 	    goal.goal.target_pose.pose.position.z = pz;
@@ -166,9 +166,9 @@ bool ROSNode::MakeGoal::reachedWayPoint() {
 
 	move_base_msgs::MoveBaseActionGoal currWP = getCurrWaypoint();
 
-	if ((abs(gpsPos->pose.pose.position.x - currWP.goal.target_pose.pose.position.x) <= threshold) &&
-		(abs(gpsPos->pose.pose.position.y - currWP.goal.target_pose.pose.position.y) <= threshold) &&
-		(abs(gpsPos->pose.pose.position.z - currWP.goal.target_pose.pose.position.z) <= threshold)) {
+	if ((abs(gpsPos->pose.pose.position.x - currWP.goal.target_pose.pose.position.x) <= THRESHOLD) &&
+		(abs(gpsPos->pose.pose.position.y - currWP.goal.target_pose.pose.position.y) <= THRESHOLD) &&
+		(abs(gpsPos->pose.pose.position.z - currWP.goal.target_pose.pose.position.z) <= THRESHOLD)) {
 		return true;
 	}
 	return false;
