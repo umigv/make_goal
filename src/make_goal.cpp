@@ -159,8 +159,7 @@ private:
 	void publish_goal(const SimpleGoal &goal) {
 		const auto now = ros::Time::now();
 
-		// goal_pattern_.header.stamp = now;
-		// goal_pattern_.goal_id.stamp = now;
+		goal_pattern_.header.stamp = now;
 		goal_pattern_.goal.target_pose.header.stamp = now;
 		publisher_.publish(as_action_goal(goal, goal_pattern_));
 		++goal_pattern_.header.seq;
@@ -181,7 +180,6 @@ ActionGoalT make_action_goal_pattern(const std::string &frame_id,
 	ActionGoalT pattern;
 
 	pattern.header.seq = 0;
-	pattern.header.frame_id = frame_id;
 
 	pattern.goal_id.id = goal_id;
 
