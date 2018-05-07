@@ -139,18 +139,7 @@ private:
 			return;
 		}
 
-		const auto now = ros::Time::now();
-
-		goal_pattern_.header.stamp = now;
-		goal_pattern_.goal_id.stamp = now;
-		goal_pattern_.goal.target_pose.header.stamp = now;
-		publisher_.publish(as_action_goal(maybe_current.value(),
-										  goal_pattern_));
-		++goal_pattern_.header.seq;
-		++goal_pattern_.goal.target_pose.header.seq;
-
-
-		ROS_INFO_STREAM("published goal " << goal_index_);
+		publish_goal(maybe_current.value());
 	}
 
 	void publish_next_goal() {
@@ -160,12 +149,16 @@ private:
 			return;
 		}
 
+		publish_goal(maybe_next.value());
+	}
+
+	void publish_goal(const SimpleGoal &goal) {
 		const auto now = ros::Time::now();
 
 		goal_pattern_.header.stamp = now;
 		goal_pattern_.goal_id.stamp = now;
 		goal_pattern_.goal.target_pose.header.stamp = now;
-		publisher_.publish(as_action_goal(maybe_next.value(), goal_pattern_));
+		publisher_.publish(as_action_goal(goal, goal_pattern_));
 		++goal_pattern_.header.seq;
 		++goal_pattern_.goal.target_pose.header.seq;
 
