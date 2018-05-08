@@ -13,9 +13,12 @@ find_package(Boost REQUIRED COMPONENTS system)
 catkin_package(CATKIN_DEPENDS move_base_msgs nav_msgs roscpp
                               std_msgs umigv_utilities)
 
-include_directories(${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
+include_directories(include ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 
-add_executable(make_goal src/make_goal.cpp)
+set(SOURCES src/goal_director.cpp src/make_goal.cpp
+            src/message_utils.cpp src/simple_goal.cpp)
+
+add_executable(make_goal ${SOURCES})
 target_link_libraries(make_goal ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 add_dependencies(make_goal ${catkin_EXPORTED_TARGETS})
 
