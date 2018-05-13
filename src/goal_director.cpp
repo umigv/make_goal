@@ -17,7 +17,10 @@ GoalDirectorBuilder::with_node(ros::NodeHandle &node) noexcept {
 
 GoalDirectorBuilder&
 GoalDirectorBuilder::from_stream(std::istream &is) noexcept {
-    is_ = &is;
+    std::istream_iterator<GoalT> first{ is };
+    std::istream_iterator<GoalT> last;
+
+    goals_ = std::vector<GoalT>(first, last);
 
     return *this;
 }
@@ -44,20 +47,17 @@ GoalDirectorBuilder::with_goal_id(std::string id) noexcept {
 }
 
 GoalDirector GoalDirectorBuilder::build() {
-    if (!node_ || !is_ || !threshold_ || !frame_ || !id_) {
+    if (!node_ || !goals_ || !threshold_ || !frame_ || !id_) {
         throw std::logic_error{ "GoalDirectorBuilder::build" };
     }
 
-    std::vector<GoalT> goals(std::istream_iterator<GoalT>{ *is_ },
-                             std::istream_iterator<GoalT>{ });
-
-    for (auto &goal : goals) {
+    for (auto &goal : goals_.value()) {
     	goal.goal_id.id = id_.value();
     	goal.goal.target_pose.header.frame_id = frame_.value();
     }
 
     return { node_->advertise<GoalT>("move_base/goal", 10),
-             std::move(goals), threshold_.value() };
+             std::move(goals_.value()), threshold_.value() };
 }
 
 GoalDirector::GoalDirector(GoalDirector &&other) noexcept
@@ -65,6 +65,10 @@ GoalDirector::GoalDirector(GoalDirector &&other) noexcept
   goals_{ std::move(other.goals_) },
   distance_threshold_{ other.distance_threshold_ },
   current_iter_{ std::move(other.current_iter_) }, seq_{ other.seq_ } { }
+
+tf2::BufferCore& GoalDirector::buffer() noexcept {
+    return transform_buffer_;
+}
 
 void GoalDirector::update_odometry(
     const nav_msgs::Odometry::ConstPtr &odom_ptr
@@ -95,14 +99,6 @@ void GoalDirector::publish_goal(const ros::TimerEvent&) {
     ++seq_;
 
     ROS_INFO_STREAM("published goal " << current_index().value());
-}
-
-tf2_ros::Buffer& GoalDirector::transform_buffer() noexcept {
-    return transform_buffer_;
-}
-
-const tf2_ros::Buffer& GoalDirector::transform_buffer() const noexcept {
-    return transform_buffer_;
 }
 
 GoalDirector::GoalDirector(ros::Publisher publisher,
@@ -153,8 +149,8 @@ const noexcept {
         current().value().get().goal.target_pose.header.frame_id;
 
     try {
-        transform_buffer().transform(odom, transformed, target,
-                                     ros::Duration{ 0.1 });
+        transform_buffer_.transform(odom, transformed, target,
+                                    ros::Duration{ 0.1 });
     } catch (const tf2::TransformException &e) {
         ROS_WARN_STREAM("GoalDirector::get_transformed_odom: unable to "
                         "transform from '" << source << "' to '" << target
@@ -173,7 +169,8 @@ boost::optional<std::size_t> GoalDirector::current_index() const noexcept {
 
     const auto index = std::distance(goals_.cbegin(), current_iter_);
 
-    return { static_cast<std::size_t>(index) };
+    using ReturnT = boost::optional<std::size_t>;
+    return ReturnT{ static_cast<std::size_t>(index) };
 }
 
 } // namespace make_goal

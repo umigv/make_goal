@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
 	const auto timer =
 		node.createTimer(params.rate, &GoalDirector::publish_goal, &director);
 
-	tf2::TransformListener listener{ director.transform_buffer() };
+	const tf2_ros::TransformListener listener{ director.buffer() };
 
 	ros::spin();
 }

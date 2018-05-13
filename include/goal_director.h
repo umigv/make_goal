@@ -42,7 +42,7 @@ public:
 
 private:
     ros::NodeHandle *node_ = nullptr;
-    std::istream *is_ = nullptr;
+    boost::optional<std::vector<GoalT>> goals_ = boost::none;
     boost::optional<f64> threshold_ = boost::none;
     boost::optional<std::string> frame_ = boost::none;
     boost::optional<std::string> id_ = boost::none;
@@ -54,13 +54,11 @@ public:
 
     GoalDirector(GoalDirector &&other) noexcept;
 
+    tf2::BufferCore& buffer() noexcept;
+
     void update_odometry(const nav_msgs::Odometry::ConstPtr &odom_ptr);
 
     void publish_goal(const ros::TimerEvent&);
-
-    tf2_ros::Buffer& transform_buffer() noexcept;
-
-    const tf2_ros::Buffer& transform_buffer() const noexcept;
 
 private:
     GoalDirector(ros::Publisher publisher, std::vector<GoalT> goals,
