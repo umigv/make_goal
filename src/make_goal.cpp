@@ -1,5 +1,4 @@
 // Code refactored by Michael specifically for Greg
-
 #include "goal_director.h"
 
 #include <fstream>
