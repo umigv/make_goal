@@ -7,6 +7,7 @@
 
 #include <nav_msgs/Odometry.h>
 #include <ros/ros.h>
+#include <tf2_ros/transform_listener.h>
 #include <umigv_utilities/exceptions.hpp>
 #include <umigv_utilities/rosparam.hpp>
 #include <umigv_utilities/types.hpp>
@@ -73,6 +74,8 @@ int main(int argc, char *argv[]) {
 										   &director);
 	const auto timer =
 		node.createTimer(params.rate, &GoalDirector::publish_goal, &director);
+
+	tf2::TransformListener listener{ director.transform_buffer() };
 
 	ros::spin();
 }
