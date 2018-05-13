@@ -2,8 +2,6 @@ Michael Zhong, 4/15/2018
 
 Notes:
 
-- Fixed bug where make_goal node would segfault/infinitely loop by preloading all the coordinates from the input file.
-
 - Currently the make_goal node operates by subscribing to /odom ("nav_msgs::Odometry" messages) and publishing to /move_base/goal. In the actual competiton, the input may be navsat (sensor_msgs/NavSatFix) messages instead. It would be ideal if we had a way to publish navsat messages to the simulation as well, since /move_base/goal only takes "move_base_msgs::MoveBaseActionGoal" data types. As a workaround, it is possible to simply subscribe to the navsat message from /fix instead of /odom, decide if we reached out desired lat/long in the make_goal node, then publish our new goal as a move_base_msgs::MoveBaseActionGoal to /move_base/goal like before.
 
 - The current threshold for error is about 0.7 (meters?). This should be adjusted to the desired threshold for actual performance. (Note: A threshold is required because there is some inaccuracy with the robot's estimate of positon)
