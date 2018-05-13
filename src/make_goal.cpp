@@ -1,6 +1,5 @@
 // Code refactored by Michael specifically for Greg
 
-#include "simple_goal.h"
 #include "goal_director.h"
 
 #include <fstream>
@@ -15,23 +14,8 @@
 
 using namespace umigv::types;
 
-using umigv::make_goal::ActionGoalT;
 using umigv::make_goal::GoalDirector;
 using umigv::make_goal::GoalDirectorBuilder;
-
-static ActionGoalT make_action_goal_pattern(const std::string &frame_id,
-						 					const std::string &goal_id) {
-	ActionGoalT pattern;
-
-	pattern.header.seq = 0;
-
-	pattern.goal_id.id = goal_id;
-
-	pattern.goal.target_pose.header.seq = 0;
-	pattern.goal.target_pose.header.frame_id = frame_id;
-
-	return pattern;
-}
 
 struct Parameters {
 	std::string frame_id;
@@ -71,17 +55,16 @@ int main(int argc, char *argv[]) {
 	ros::NodeHandle node;
 	ros::NodeHandle private_node{ "~" };
 
-	const Parameters params = get_parameters(private_node);
+	Parameters params = get_parameters(private_node);
 
-	const auto pattern =
-		make_action_goal_pattern(params.frame_id, params.goal_id);
 	std::ifstream ifs{ params.goals_filename };
 
 	GoalDirector director =
 		GoalDirectorBuilder{ }.with_node(node)
 							  .from_stream(ifs)
-							  .with_pattern(pattern)
 							  .with_threshold(params.threshold)
+							  .with_goal_frame(std::move(params.frame_id))
+							  .with_goal_id(std::move(params.goal_id))
 							  .build();
 
 	const auto subscriber =

@@ -60,6 +60,18 @@ Point operator-(const Point &lhs, const Point &rhs) noexcept {
 
 } // namespace geometry_msgs
 
+namespace move_base_msgs {
+
+std::ostream& operator<<(std::ostream &os, const MoveBaseActionGoal &goal) {
+    return os << goal.goal.target_pose.pose;
+}
+
+std::istream& operator>>(std::istream &is, MoveBaseActionGoal &goal) {
+    return is >> goal.goal.target_pose.pose;
+}
+
+} // namespace move_base_msgs
+
 namespace umigv {
 namespace make_goal {
 

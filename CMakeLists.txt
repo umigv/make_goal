@@ -5,18 +5,20 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(catkin REQUIRED COMPONENTS move_base_msgs nav_msgs roscpp
-                                        std_msgs umigv_utilities)
+find_package(catkin REQUIRED COMPONENTS move_base_msgs nav_msgs roscpp std_msgs
+                                        tf2 tf2_geometry_msgs tf2_ros
+                                        umigv_utilities)
 
-find_package(Boost REQUIRED COMPONENTS system)
+find_package(Boost REQUIRED)
 
-catkin_package(CATKIN_DEPENDS move_base_msgs nav_msgs roscpp
-                              std_msgs umigv_utilities)
+catkin_package(CATKIN_DEPENDS move_base_msgs nav_msgs roscpp std_msgs tf2
+                              tf2_geometry_msgs tf2_ros umigv_utilities
+               DEPENDS Boost)
 
 include_directories(include ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
 
 set(SOURCES src/goal_director.cpp src/make_goal.cpp
-            src/message_utils.cpp src/simple_goal.cpp)
+            src/message_utils.cpp)
 
 add_executable(make_goal ${SOURCES})
 target_link_libraries(make_goal ${catkin_LIBRARIES} ${Boost_LIBRARIES})
