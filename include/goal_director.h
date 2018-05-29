@@ -12,15 +12,19 @@
 
 #include <geometry_msgs/TransformStamped.h>
 #include <move_base_msgs/MoveBaseActionGoal.h>
+#include <geographic_msgs/GeoPoint.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/node_handle.h>
 #include <tf2_ros/buffer.h>
 #include <umigv_utilities/types.hpp>
 
+#include <geodesy/utm.h>
+#include <sensor_msgs/NavSatFix.h>
+
 namespace umigv {
 namespace make_goal {
 
-using GoalT = move_base_msgs::MoveBaseActionGoal;
+using GoalT = sensor_msgs::NavSatFix;
 
 class GoalDirector;
 
@@ -56,7 +60,7 @@ public:
 
     tf2::BufferCore& buffer() noexcept;
 
-    void update_odometry(const nav_msgs::Odometry::ConstPtr &odom_ptr);
+    void update_odometry(const sensor_msgs::NavSatFix::ConstPtr &nav_ptr);
 
     void publish_goal(const ros::TimerEvent&);
 
@@ -64,7 +68,7 @@ private:
     GoalDirector(ros::Publisher publisher, std::vector<GoalT> goals,
                  f64 threshold) noexcept;
 
-    bool is_goal_reached(const nav_msgs::Odometry &odom) const noexcept;
+    bool is_goal_reached(const sensor_msgs::NavSatFix &nav_ptr) const noexcept;
 
     boost::optional<std::reference_wrapper<const GoalT>>
     current() const noexcept;
@@ -73,6 +77,9 @@ private:
     get_transformed_odom(const nav_msgs::Odometry &odom) const noexcept;
 
     boost::optional<std::size_t> current_index() const noexcept;
+
+    geodesy::UTMPoint
+    navsatfix_to_UMT(sensor_msgs::NavSatFix gps_coord) const noexcept;
 
     ros::Publisher publisher_;
     std::vector<GoalT> goals_;

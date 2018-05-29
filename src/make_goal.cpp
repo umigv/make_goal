@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
 							  .build();
 
 	const auto subscriber =
-		node.subscribe<nav_msgs::Odometry>("odom", 10,
+		node.subscribe<sensor_msgs::NavSatFix>("fix", 10,
 										   &GoalDirector::update_odometry,
 										   &director);
 	const auto timer =

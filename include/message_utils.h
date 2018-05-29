@@ -16,6 +16,9 @@
 #include <tf2/convert.h>
 #include <umigv_utilities/types.hpp>
 
+#include <geographic_msgs/GeoPoint.h>
+#include <sensor_msgs/NavSatFix.h>
+
 namespace geometry_msgs {
 
 std::ostream& operator<<(std::ostream &os, const Point &point);
@@ -45,6 +48,11 @@ std::ostream& operator<<(std::ostream &os, const MoveBaseActionGoal &goal);
 std::istream& operator>>(std::istream &is, MoveBaseActionGoal &goal);
 
 } // namespace move_base_msgs
+
+namespace nav_sat_fix {
+    std::ostream& operator<<(std::ostream &os, const sensor_msgs::NavSatFix &nav);
+    std::istream& operator>>(std::istream &is, sensor_msgs::NavSatFix &nav);
+}
 
 namespace tf2 {
 
@@ -93,6 +101,9 @@ f64 norm(const geometry_msgs::Point &point) noexcept;
 
 f64 distance(const geometry_msgs::Point &lhs,
              const geometry_msgs::Point &rhs) noexcept;
+
+f64 distance(const sensor_msgs::NavSatFix &lhs, 
+             const sensor_msgs::NavSatFix &rhs) noexcept;
 
 } // namespace make_goal
 } // namespace umigv

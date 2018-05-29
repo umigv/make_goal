@@ -5,6 +5,7 @@
 
 #include <ros/time.h>
 
+
 namespace umigv {
 namespace make_goal {
 
@@ -52,11 +53,10 @@ GoalDirector GoalDirectorBuilder::build() {
     }
 
     for (auto &goal : goals_.value()) {
-    	goal.goal_id.id = id_.value();
-    	goal.goal.target_pose.header.frame_id = frame_.value();
+        goal.header.frame_id = frame_.value();
     }
 
-    return { node_->advertise<GoalT>("move_base/goal", 10),
+    return { node_->advertise<geodesy::UTMPoint>("utm", 10),
              std::move(goals_.value()), threshold_.value() };
 }
 
@@ -71,13 +71,13 @@ tf2::BufferCore& GoalDirector::buffer() noexcept {
 }
 
 void GoalDirector::update_odometry(
-    const nav_msgs::Odometry::ConstPtr &odom_ptr
+    const sensor_msgs::NavSatFix::ConstPtr &nav_ptr
 ) {
     if (!current()) {
         return;
     }
 
-    if (is_goal_reached(*odom_ptr)) {
+    if (is_goal_reached(*nav_ptr)) {
         ++current_iter_;
     }
 }
@@ -87,16 +87,20 @@ void GoalDirector::publish_goal(const ros::TimerEvent&) {
         return;
     }
 
-    GoalT to_broadcast = current().value();
+    geodesy::UTMPoint to_broadcast = navsatfix_to_UMT(current().value());
 
+    /*
     to_broadcast.header.seq = seq_;
     to_broadcast.goal.target_pose.header.seq = seq_;
 
     const auto now = ros::Time::now();
     to_broadcast.header.stamp = now;
     to_broadcast.goal.target_pose.header.stamp = now;
+    */
+
     publisher_.publish(to_broadcast);
     ++seq_;
+
 
     ROS_INFO_STREAM("published goal " << current_index().value());
 }
@@ -107,23 +111,21 @@ GoalDirector::GoalDirector(ros::Publisher publisher,
 : publisher_{ std::move(publisher) }, goals_{ std::move(goals) },
   distance_threshold_{ threshold } { }
 
-bool GoalDirector::is_goal_reached(const nav_msgs::Odometry &odom)
+bool GoalDirector::is_goal_reached(const sensor_msgs::NavSatFix &nav)
 const noexcept {
     if (!current()) {
         return false;
     }
 
-    const auto maybe_transformed = get_transformed_odom(odom);
+    //const auto &odom_pos = maybe_transformed.value().pose.pose.position;
+    //const auto &target_pos =
+        //current().value().get().goal.target_pose.pose.position;
 
-    if (!maybe_transformed) {
-        return false;
-    }
+    const auto &gps_pos = nav;
+    const auto &target_pos = current().value().get();
 
-    const auto &odom_pos = maybe_transformed.value().pose.pose.position;
-    const auto &target_pos =
-        current().value().get().goal.target_pose.pose.position;
+    return distance(gps_pos, target_pos) <= distance_threshold_;
 
-    return distance(odom_pos, target_pos) <= distance_threshold_;
 }
 
 boost::optional<std::reference_wrapper<const GoalT>>
@@ -146,7 +148,7 @@ const noexcept {
     nav_msgs::Odometry transformed;
     const auto &source = odom.header.frame_id;
     const auto &target =
-        current().value().get().goal.target_pose.header.frame_id;
+        current().value().get().header.frame_id;
 
     try {
         transform_buffer_.transform(odom, transformed, target,
@@ -171,6 +173,18 @@ boost::optional<std::size_t> GoalDirector::current_index() const noexcept {
 
     using ReturnT = boost::optional<std::size_t>;
     return ReturnT{ static_cast<std::size_t>(index) };
+}
+
+geodesy::UTMPoint GoalDirector::navsatfix_to_UMT(sensor_msgs::NavSatFix gps_coord) const noexcept {
+
+    geographic_msgs::GeoPoint geo_pt;
+    geo_pt.latitude = gps_coord.latitude;
+    geo_pt.longitude = gps_coord.longitude;
+    geo_pt.altitude = gps_coord.altitude;
+
+    geodesy::UTMPoint utm_pt(geo_pt);
+    return utm_pt;
+
 }
 
 } // namespace make_goal

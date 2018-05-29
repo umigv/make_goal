@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(catkin REQUIRED COMPONENTS move_base_msgs nav_msgs roscpp std_msgs
                                         tf2 tf2_geometry_msgs tf2_ros
-                                        umigv_utilities)
+                                        umigv_utilities geographic_msgs sensor_msgs geodesy)
 
 find_package(Boost REQUIRED)
 

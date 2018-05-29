@@ -70,6 +70,19 @@ std::istream& operator>>(std::istream &is, MoveBaseActionGoal &goal) {
     return is >> goal.goal.target_pose.pose;
 }
 
+namespace nav_sat_fix {
+
+std::ostream& operator<<(std::ostream &os, const sensor_msgs::NavSatFix &nav) {
+    return os << nav.latitude << ' ' << nav.longitude << ' ' << nav.altitude;
+}
+
+std::istream& operator>>(std::istream &is, sensor_msgs::NavSatFix &nav) {
+    return is >> nav.latitude >> nav.longitude >> nav.altitude;
+}
+
+}
+
+
 } // namespace move_base_msgs
 
 namespace umigv {
@@ -87,6 +100,20 @@ f64 norm(const geometry_msgs::Point &point) noexcept {
 f64 distance(const geometry_msgs::Point &lhs,
              const geometry_msgs::Point &rhs) noexcept {
     return norm(lhs - rhs);
+}
+
+f64 distance(const sensor_msgs::NavSatFix &lhs, 
+             const sensor_msgs::NavSatFix &rhs) noexcept {
+
+    double absdist_long = abs(lhs.longitude - rhs.longitude);
+
+    double num = sqrt(cos(rhs.latitude) * pow(sin(absdist_long), 2) 
+        + (cos(lhs.latitude) * sin(rhs.latitude) 
+        - sin(lhs.latitude) * cos(rhs.latitude) * pow(cos(absdist_long), 2)));
+
+    double denom = sin(lhs.latitude) * sin(rhs.latitude) + cos(lhs.latitude) * cos(rhs.latitude) * cos(absdist_long);
+
+    return atan2(num, denom);
 }
 
 } // namespace make_goal
