@@ -148,7 +148,13 @@ const noexcept {
     const geometry_msgs::Point waypoint_point =
         geodesy::toGeometry(current().value());
 
-    return distance(nav_point, waypoint_point) <= distance_threshold_;
+    const double distance_from_waypoint = distance(nav_point, waypoint_point);
+
+    ROS_DEBUG_STREAM("current utm location: " << nav_point);
+    ROS_DEBUG_STREAM("current waypoint location: " << waypoint_point);
+    ROS_DEBUG_STREAM("distance from waypoint: " << distance_from_waypoint);
+
+    return distance_from_waypoint <= distance_threshold_;
 
 }
 
