@@ -4,9 +4,8 @@
 #include <fstream>
 #include <string>
 
-#include <nav_msgs/Odometry.h>
 #include <ros/ros.h>
-#include <tf2_ros/transform_listener.h>
+#include <sensor_msgs/NavSatFix.h>
 #include <umigv_utilities/exceptions.hpp>
 #include <umigv_utilities/rosparam.hpp>
 #include <umigv_utilities/types.hpp>
@@ -63,18 +62,14 @@ int main(int argc, char *argv[]) {
 		GoalDirectorBuilder{ }.with_node(node)
 							  .from_stream(ifs)
 							  .with_threshold(params.threshold)
-							  .with_goal_frame(std::move(params.frame_id))
 							  .with_goal_id(std::move(params.goal_id))
 							  .build();
 
-	const auto subscriber =
-		node.subscribe<sensor_msgs::NavSatFix>("fix", 10,
-										   &GoalDirector::update_odometry,
-										   &director);
+	const auto subscriber = node.subscribe<sensor_msgs::NavSatFix>(
+		"fix", 10, &GoalDirector::update_fix, &director
+	);
 	const auto timer =
 		node.createTimer(params.rate, &GoalDirector::publish_goal, &director);
-
-	const tf2_ros::TransformListener listener{ director.buffer() };
 
 	ros::spin();
 }
