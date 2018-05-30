@@ -3,11 +3,46 @@
 #include <iterator>
 #include <utility>
 
+#include <geometry_msgs/Quaternion.h>
 #include <ros/time.h>
-
 
 namespace umigv {
 namespace make_goal {
+namespace detail {
+
+static inline geodesy::UTMPoint wgs84_to_utm(
+    const geographic_msgs::GeoPoint &point
+) {
+    geodesy::UTMPoint utm;
+    geodesy::convert(point, utm);
+
+    return utm;
+}
+
+static inline geometry_msgs::Quaternion identity_quaternion() noexcept {
+    geometry_msgs::Quaternion quaternion;
+
+    quaternion.x = 1.0;
+    quaternion.y = 0.0;
+    quaternion.z = 0.0;
+    quaternion.w = 0.0;
+
+    return quaternion;
+}
+
+static inline GoalT utm_to_goal(const geodesy::UTMPoint &point,
+                                const std::string &id) {
+    GoalT goal;
+
+    goal.goal_id.id = id;
+    goal.goal.target_pose.header.frame_id = "utm";
+    goal.goal.target_pose.pose.position = geodesy::toGeometry(point);
+    goal.goal.target_pose.pose.orientation = identity_quaternion();
+
+    return goal;
+}
+
+} // namespace detail
 
 GoalDirectorBuilder&
 GoalDirectorBuilder::with_node(ros::NodeHandle &node) noexcept {
@@ -18,10 +53,13 @@ GoalDirectorBuilder::with_node(ros::NodeHandle &node) noexcept {
 
 GoalDirectorBuilder&
 GoalDirectorBuilder::from_stream(std::istream &is) noexcept {
-    std::istream_iterator<GoalT> first{ is };
-    std::istream_iterator<GoalT> last;
+    const std::istream_iterator<geographic_msgs::GeoPoint> first{ is };
+    const std::istream_iterator<geographic_msgs::GeoPoint> last;
 
-    goals_ = std::vector<GoalT>(first, last);
+    waypoints_.emplace();
+
+    std::transform(first, last, std::back_inserter(waypoints_.value()),
+                   &detail::wgs84_to_utm);
 
     return *this;
 }
@@ -34,13 +72,6 @@ GoalDirectorBuilder::with_threshold(const f64 threshold) noexcept {
 }
 
 GoalDirectorBuilder&
-GoalDirectorBuilder::with_goal_frame(std::string frame) noexcept {
-    frame_ = std::move(frame);
-
-    return *this;
-}
-
-GoalDirectorBuilder&
 GoalDirectorBuilder::with_goal_id(std::string id) noexcept {
     id_ = std::move(id);
 
@@ -48,36 +79,30 @@ GoalDirectorBuilder::with_goal_id(std::string id) noexcept {
 }
 
 GoalDirector GoalDirectorBuilder::build() {
-    if (!node_ || !goals_ || !threshold_ || !frame_ || !id_) {
+    if (!node_ || !waypoints_ || !threshold_ || !id_) {
         throw std::logic_error{ "GoalDirectorBuilder::build" };
     }
 
-    for (auto &goal : goals_.value()) {
-        goal.header.frame_id = frame_.value();
-    }
-
-    return { node_->advertise<geodesy::UTMPoint>("utm", 10),
-             std::move(goals_.value()), threshold_.value() };
+    return { node_->advertise<GoalT>("move_base/goal", 10),
+             std::move(waypoints_.value()), threshold_.value(),
+             std::move(id_.value()) };
 }
 
 GoalDirector::GoalDirector(GoalDirector &&other) noexcept
 : publisher_{ std::move(other.publisher_) },
-  goals_{ std::move(other.goals_) },
+  waypoints_{ std::move(other.waypoints_) },
   distance_threshold_{ other.distance_threshold_ },
-  current_iter_{ std::move(other.current_iter_) }, seq_{ other.seq_ } { }
+  current_iter_{ std::move(other.current_iter_) }, seq_{ other.seq_ },
+  id_{ std::move(other.id_) } { }
 
-tf2::BufferCore& GoalDirector::buffer() noexcept {
-    return transform_buffer_;
-}
-
-void GoalDirector::update_odometry(
-    const sensor_msgs::NavSatFix::ConstPtr &nav_ptr
+void GoalDirector::update_fix(
+    const sensor_msgs::NavSatFix::ConstPtr &fix_ptr
 ) {
     if (!current()) {
         return;
     }
 
-    if (is_goal_reached(*nav_ptr)) {
+    if (is_goal_reached(*fix_ptr)) {
         ++current_iter_;
     }
 }
@@ -87,16 +112,15 @@ void GoalDirector::publish_goal(const ros::TimerEvent&) {
         return;
     }
 
-    geodesy::UTMPoint to_broadcast = navsatfix_to_UMT(current().value());
+    GoalT to_broadcast = detail::utm_to_goal(current().value(), id_);
 
-    /*
     to_broadcast.header.seq = seq_;
     to_broadcast.goal.target_pose.header.seq = seq_;
 
     const auto now = ros::Time::now();
     to_broadcast.header.stamp = now;
     to_broadcast.goal.target_pose.header.stamp = now;
-    */
+    
 
     publisher_.publish(to_broadcast);
     ++seq_;
@@ -106,62 +130,37 @@ void GoalDirector::publish_goal(const ros::TimerEvent&) {
 }
 
 GoalDirector::GoalDirector(ros::Publisher publisher,
-                           std::vector<GoalT> goals,
-                           const f64 threshold) noexcept
-: publisher_{ std::move(publisher) }, goals_{ std::move(goals) },
-  distance_threshold_{ threshold } { }
+                           std::vector<WaypointT> waypoints,
+                           const f64 threshold, std::string id) noexcept
+: publisher_{ std::move(publisher) }, waypoints_{ std::move(waypoints) },
+  distance_threshold_{ threshold }, id_{ std::move(id) } { }
 
-bool GoalDirector::is_goal_reached(const sensor_msgs::NavSatFix &nav)
+bool GoalDirector::is_goal_reached(const sensor_msgs::NavSatFix &fix)
 const noexcept {
     if (!current()) {
         return false;
     }
 
-    //const auto &odom_pos = maybe_transformed.value().pose.pose.position;
-    //const auto &target_pos =
-        //current().value().get().goal.target_pose.pose.position;
+    geodesy::UTMPoint nav_utm;
+    geodesy::convert(fix, nav_utm);
 
-    const auto &gps_pos = nav;
-    const auto &target_pos = current().value().get();
+    const geometry_msgs::Point nav_point = geodesy::toGeometry(nav_utm);
+    const geometry_msgs::Point waypoint_point =
+        geodesy::toGeometry(current().value());
 
-    return distance(gps_pos, target_pos) <= distance_threshold_;
+    return distance(nav_point, waypoint_point) <= distance_threshold_;
 
 }
 
-boost::optional<std::reference_wrapper<const GoalT>>
+boost::optional<std::reference_wrapper<const WaypointT>>
 GoalDirector::current() const noexcept {
-    if (current_iter_ < goals_.cbegin() || current_iter_ >= goals_.cend()) {
+    if (current_iter_ < waypoints_.cbegin()
+        || current_iter_ >= waypoints_.cend()) {
         return boost::none;
     }
 
-    using ReturnT = boost::optional<std::reference_wrapper<const GoalT>>;
+    using ReturnT = boost::optional<std::reference_wrapper<const WaypointT>>;
     return ReturnT{ std::cref(*current_iter_) };
-}
-
-boost::optional<nav_msgs::Odometry>
-GoalDirector::get_transformed_odom(const nav_msgs::Odometry &odom)
-const noexcept {
-    if (!current()) {
-        return boost::none;
-    }
-
-    nav_msgs::Odometry transformed;
-    const auto &source = odom.header.frame_id;
-    const auto &target =
-        current().value().get().header.frame_id;
-
-    try {
-        transform_buffer_.transform(odom, transformed, target,
-                                    ros::Duration{ 0.1 });
-    } catch (const tf2::TransformException &e) {
-        ROS_WARN_STREAM("GoalDirector::get_transformed_odom: unable to "
-                        "transform from '" << source << "' to '" << target
-                        << "': " << e.what());
-        return boost::none;
-    }
-
-    using ReturnT = boost::optional<nav_msgs::Odometry>;
-    return ReturnT{ transformed };
 }
 
 boost::optional<std::size_t> GoalDirector::current_index() const noexcept {
@@ -169,22 +168,10 @@ boost::optional<std::size_t> GoalDirector::current_index() const noexcept {
         return boost::none;
     }
 
-    const auto index = std::distance(goals_.cbegin(), current_iter_);
+    const auto index = std::distance(waypoints_.cbegin(), current_iter_);
 
     using ReturnT = boost::optional<std::size_t>;
     return ReturnT{ static_cast<std::size_t>(index) };
-}
-
-geodesy::UTMPoint GoalDirector::navsatfix_to_UMT(sensor_msgs::NavSatFix gps_coord) const noexcept {
-
-    geographic_msgs::GeoPoint geo_pt;
-    geo_pt.latitude = gps_coord.latitude;
-    geo_pt.longitude = gps_coord.longitude;
-    geo_pt.altitude = gps_coord.altitude;
-
-    geodesy::UTMPoint utm_pt(geo_pt);
-    return utm_pt;
-
 }
 
 } // namespace make_goal
