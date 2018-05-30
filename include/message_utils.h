@@ -49,7 +49,7 @@ std::istream& operator>>(std::istream &is, MoveBaseActionGoal &goal);
 
 } // namespace move_base_msgs
 
-namespace nav_sat_fix {
+namespace sensor_msgs {
     std::ostream& operator<<(std::ostream &os, const sensor_msgs::NavSatFix &nav);
     std::istream& operator>>(std::istream &is, sensor_msgs::NavSatFix &nav);
 }
