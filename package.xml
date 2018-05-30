@@ -1,6 +1,6 @@
 <package format="2">
     <name>make_goal</name>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
     <description>GPS goal guidance.</description>
     <maintainer email="zhongmic@umich.edu">Michael Zhong</maintainer>
     <maintainer email="gregjm@umich.edu">Gregory Meyer</maintainer>
@@ -15,7 +15,6 @@
     <depend>geographic_msgs</depend>
     <depend>geometry_msgs</depend>
     <depend>move_base_msgs</depend>
-    <depend>nav_msgs</depend>
     <depend>roscpp</depend>
     <depend>sensor_msgs</depend>
     <depend>std_msgs</depend>
