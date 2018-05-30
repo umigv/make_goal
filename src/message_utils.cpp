@@ -70,20 +70,32 @@ std::istream& operator>>(std::istream &is, MoveBaseActionGoal &goal) {
     return is >> goal.goal.target_pose.pose;
 }
 
-namespace nav_sat_fix {
+} // namespace move_base_msgs
 
-std::ostream& operator<<(std::ostream &os, const sensor_msgs::NavSatFix &nav) {
+namespace sensor_msgs {
+
+std::ostream& operator<<(std::ostream &os, const NavSatFix &nav) {
     return os << nav.latitude << ' ' << nav.longitude << ' ' << nav.altitude;
 }
 
-std::istream& operator>>(std::istream &is, sensor_msgs::NavSatFix &nav) {
+std::istream& operator>>(std::istream &is, NavSatFix &nav) {
     return is >> nav.latitude >> nav.longitude >> nav.altitude;
 }
 
+} // namespace sensor_msgs
+
+namespace geographic_msgs {
+
+std::ostream& operator<<(std::ostream &os, const GeoPoint &point) {
+    return os << point.latitude << ' ' << point.longitude << ' '
+              << point.altitude;
 }
 
+std::istream& operator>>(std::istream &is, GeoPoint &point) {
+    return is >> point.latitude >> point.longitude >> point.altitude;
+}
 
-} // namespace move_base_msgs
+} // namespace geographic_msgs
 
 namespace umigv {
 namespace make_goal {
