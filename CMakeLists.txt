@@ -6,13 +6,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(catkin REQUIRED COMPONENTS geodesy geographic_msgs move_base_msgs
-                                        nav_msgs roscpp sensor_msgs std_msgs
+                                        roscpp sensor_msgs std_msgs
                                         umigv_utilities)
 
 find_package(Boost REQUIRED)
 
-catkin_package(CATKIN_DEPENDS geodesy geographic_msgs move_base_msgs nav_msgs
-                              roscpp sensor_msgs std_msgs umigv_utilities
+catkin_package(CATKIN_DEPENDS geodesy geographic_msgs move_base_msgs roscpp
+                              sensor_msgs std_msgs umigv_utilities
                DEPENDS Boost)
 
 include_directories(include ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})

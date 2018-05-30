@@ -13,7 +13,6 @@
 #include <geometry_msgs/Quaternion.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <move_base_msgs/MoveBaseActionGoal.h>
-#include <nav_msgs/Odometry.h>
 #include <ros/time.h>
 #include <sensor_msgs/NavSatFix.h>
 #include <umigv_utilities/types.hpp>
