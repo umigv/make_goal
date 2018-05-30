@@ -17,7 +17,6 @@ using umigv::make_goal::GoalDirector;
 using umigv::make_goal::GoalDirectorBuilder;
 
 struct Parameters {
-	std::string frame_id;
 	std::string goal_id;
 	std::string goals_filename;
 	f64 threshold;
@@ -30,8 +29,6 @@ static Parameters get_parameters(ros::NodeHandle &node) {
 	Parameters params;
 
 	try {
-		params.frame_id =
-			umigv::get_parameter_fatal<std::string>(node, "frame_id"s);
 		params.goal_id =
 			umigv::get_parameter_fatal<std::string>(node, "goal_id"s);
 		params.goals_filename =
