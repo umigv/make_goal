@@ -93,6 +93,9 @@ f64 distance(const geometry_msgs::Point &lhs,
 f64 distance(const sensor_msgs::NavSatFix &lhs, 
              const sensor_msgs::NavSatFix &rhs) noexcept;
 
+f64 planar_distance(const geometry_msgs::Point &lhs,
+                    const geometry_msgs::Point &rhs) noexcept;
+
 } // namespace make_goal
 } // namespace umigv
 

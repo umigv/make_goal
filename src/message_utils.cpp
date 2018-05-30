@@ -128,5 +128,13 @@ f64 distance(const sensor_msgs::NavSatFix &lhs,
     return atan2(num, denom);
 }
 
+f64 planar_distance(const geometry_msgs::Point &lhs,
+                    const geometry_msgs::Point &rhs) noexcept {
+    const geometry_msgs::Point lhs_planar{ lhs.x, lhs.y, 0.0 };
+    const geometry_msgs::Point rhs_planar{ rhs.x, rhs.y, 0.0 };
+
+    return distance(lhs_planar, rhs_planar);
+}
+
 } // namespace make_goal
 } // namespace umigv
