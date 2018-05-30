@@ -130,8 +130,17 @@ f64 distance(const sensor_msgs::NavSatFix &lhs,
 
 f64 planar_distance(const geometry_msgs::Point &lhs,
                     const geometry_msgs::Point &rhs) noexcept {
-    const geometry_msgs::Point lhs_planar{ lhs.x, lhs.y, 0.0 };
-    const geometry_msgs::Point rhs_planar{ rhs.x, rhs.y, 0.0 };
+    geometry_msgs::Point lhs_planar;
+
+    lhs_planar.x = lhs.x;
+    lhs_planar.y = lhs.y;
+    lhs_planar.z = 0.0;
+
+    geometry_msgs::Point rhs_planar;
+
+    rhs_planar.x = rhs.x;
+    rhs_planar.y = rhs.y;
+    rhs_planar.z = 0.0;
 
     return distance(lhs_planar, rhs_planar);
 }
