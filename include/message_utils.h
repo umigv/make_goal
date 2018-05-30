@@ -4,6 +4,9 @@
 #include <iostream>
 #include <utility>
 
+#include <geodesy/utm.h>
+#include <geodesy/wgs84.h>
+#include <geographic_msgs/GeoPoint.h>
 #include <geometry_msgs/Point.h>
 #include <geometry_msgs/Pose.h>
 #include <geometry_msgs/PoseWithCovarianceStamped.h>
@@ -12,12 +15,8 @@
 #include <move_base_msgs/MoveBaseActionGoal.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/time.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include <tf2/convert.h>
-#include <umigv_utilities/types.hpp>
-
-#include <geographic_msgs/GeoPoint.h>
 #include <sensor_msgs/NavSatFix.h>
+#include <umigv_utilities/types.hpp>
 
 namespace geometry_msgs {
 
@@ -54,42 +53,32 @@ namespace sensor_msgs {
     std::istream& operator>>(std::istream &is, sensor_msgs::NavSatFix &nav);
 }
 
-namespace tf2 {
+namespace geographic_msgs {
 
-template <>
-inline const std::string&
-getFrameId(const nav_msgs::Odometry &odom) {
-    return odom.header.frame_id;
+std::ostream& operator<<(std::ostream &os, const GeoPoint &point);
+
+std::istream& operator>>(std::istream &is, GeoPoint &point);
+
+} // namespace geographic_msgs
+
+namespace geodesy {
+
+static constexpr inline void
+fromMsg(const sensor_msgs::NavSatFix &fix,
+        geographic_msgs::GeoPoint &point) noexcept {
+    point.latitude = fix.latitude;
+    point.longitude = fix.longitude;
+    point.altitude = fix.altitude;
 }
 
-template <>
-inline const ros::Time&
-getTimestamp(const nav_msgs::Odometry &odom) {
-    return odom.header.stamp;
+static inline void fromMsg(const sensor_msgs::NavSatFix &fix, UTMPoint &point) {
+    geographic_msgs::GeoPoint converted;
+
+    convert(fix, converted);
+    convert(converted, point);
 }
 
-template <>
-inline void doTransform(
-    const nav_msgs::Odometry &in, nav_msgs::Odometry &out,
-    const geometry_msgs::TransformStamped &transform
-) {
-    geometry_msgs::PoseWithCovarianceStamped in_pose;
-
-    in_pose.header = in.header;
-    in_pose.pose = in.pose;
-
-    geometry_msgs::PoseWithCovarianceStamped out_pose;
-
-    out_pose.header = out.header;
-    out_pose.pose = out.pose;
-
-    doTransform(in_pose, out_pose, transform);
-
-    out.pose = std::move(out_pose.pose);
-    out.header = std::move(out_pose.header);
-}
-
-} // namespace tf2
+} // namespace geodesy
 
 namespace umigv {
 namespace make_goal {
