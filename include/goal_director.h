@@ -3,24 +3,28 @@
 
 #include "message_utils.h"
 
+#include <cstdint>
 #include <functional>
 #include <iostream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include <boost/optional.hpp>
 
+#include <geodesy/utm.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <move_base_msgs/MoveBaseActionGoal.h>
 #include <nav_msgs/Odometry.h>
 #include <ros/node_handle.h>
-#include <tf2_ros/buffer.h>
+#include <sensor_msgs/NavSatFix.h>
 #include <umigv_utilities/types.hpp>
 
 namespace umigv {
 namespace make_goal {
 
 using GoalT = move_base_msgs::MoveBaseActionGoal;
+using WaypointT = geodesy::UTMPoint;
 
 class GoalDirector;
 
@@ -32,8 +36,6 @@ public:
 
     GoalDirectorBuilder& with_threshold(f64 threshold) noexcept;
 
-    GoalDirectorBuilder& with_goal_frame(std::string frame) noexcept;
-
     GoalDirectorBuilder& with_goal_id(std::string id) noexcept;
 
     // must be called on an rvalue
@@ -42,9 +44,8 @@ public:
 
 private:
     ros::NodeHandle *node_ = nullptr;
-    boost::optional<std::vector<GoalT>> goals_ = boost::none;
+    boost::optional<std::vector<WaypointT>> waypoints_ = boost::none;
     boost::optional<f64> threshold_ = boost::none;
-    boost::optional<std::string> frame_ = boost::none;
     boost::optional<std::string> id_ = boost::none;
 };
 
@@ -54,32 +55,27 @@ public:
 
     GoalDirector(GoalDirector &&other) noexcept;
 
-    tf2::BufferCore& buffer() noexcept;
-
-    void update_odometry(const nav_msgs::Odometry::ConstPtr &odom_ptr);
+    void update_fix(const sensor_msgs::NavSatFix::ConstPtr &fix_ptr);
 
     void publish_goal(const ros::TimerEvent&);
 
 private:
-    GoalDirector(ros::Publisher publisher, std::vector<GoalT> goals,
-                 f64 threshold) noexcept;
+    GoalDirector(ros::Publisher publisher, std::vector<WaypointT> waypoints,
+                 f64 threshold, std::string id) noexcept;
 
-    bool is_goal_reached(const nav_msgs::Odometry &odom) const noexcept;
+    bool is_goal_reached(const sensor_msgs::NavSatFix &fix) const noexcept;
 
-    boost::optional<std::reference_wrapper<const GoalT>>
+    boost::optional<std::reference_wrapper<const WaypointT>>
     current() const noexcept;
-
-    boost::optional<nav_msgs::Odometry>
-    get_transformed_odom(const nav_msgs::Odometry &odom) const noexcept;
 
     boost::optional<std::size_t> current_index() const noexcept;
 
     ros::Publisher publisher_;
-    std::vector<GoalT> goals_;
+    std::vector<WaypointT> waypoints_;
     f64 distance_threshold_;
-    std::vector<GoalT>::const_iterator current_iter_ = goals_.cbegin();
-    std::size_t seq_ = 0;
-    tf2_ros::Buffer transform_buffer_{ };
+    std::vector<WaypointT>::const_iterator current_iter_ = waypoints_.cbegin();
+    std::uint32_t seq_ = 0;
+    std::string id_;
 };
 
 } // namespace make_goal

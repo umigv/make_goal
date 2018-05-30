@@ -5,14 +5,14 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(catkin REQUIRED COMPONENTS move_base_msgs nav_msgs roscpp std_msgs
-                                        tf2 tf2_geometry_msgs tf2_ros
+find_package(catkin REQUIRED COMPONENTS geodesy geographic_msgs move_base_msgs
+                                        roscpp sensor_msgs std_msgs
                                         umigv_utilities)
 
 find_package(Boost REQUIRED)
 
-catkin_package(CATKIN_DEPENDS move_base_msgs nav_msgs roscpp std_msgs tf2
-                              tf2_geometry_msgs tf2_ros umigv_utilities
+catkin_package(CATKIN_DEPENDS geodesy geographic_msgs move_base_msgs roscpp
+                              sensor_msgs std_msgs umigv_utilities
                DEPENDS Boost)
 
 include_directories(include ${catkin_INCLUDE_DIRS} ${Boost_INCLUDE_DIRS})
